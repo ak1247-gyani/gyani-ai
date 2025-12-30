@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🧠 GYANI</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+    font-family:Segoe UI,system-ui;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    background:linear-gradient(180deg,#355c9a,#1f3b6e);
+}
+
+/* HEADER */
+.header{
+    background:#4669a7;
+    color:white;
+    padding:14px;
+    text-align:center;
+    font-weight:700;
+    font-size:22px;
+}
+
+/* CHAT */
+#chat{
+    flex:1;
+    padding:20px;
+    overflow-y:auto;
+}
+
+/* MESSAGE */
+.message{display:flex;margin:16px 0}
+.you{justify-content:flex-end}
+
+.avatar{
+    width:40px;height:40px;border-radius:50%;
+    margin:0 10px;
+}
+.gyani-avatar{background:#ff6b6b}
+.you-avatar{background:#4facfe}
+
+.bubble{
+    max-width:70%;
+    padding:14px 18px;
+    border-radius:18px;
+    background:#fff;
+}
+.name{
+    font-size:13px;
+    font-weight:700;
+    margin-bottom:4px;
+}
+
+/* INPUT */
+.input-area{
+    display:flex;
+    gap:10px;
+    padding:14px;
+    background:#4669a7;
+}
+input{
+    flex:1;
+    padding:14px 18px;
+    border-radius:30px;
+    border:none;
+    outline:none;
+}
+button{
+    padding:14px 22px;
+    border-radius:30px;
+    border:none;
+    background:#4facfe;
+    color:white;
+    font-weight:700;
+    cursor:pointer;
+}
+button:disabled{
+    opacity:.6;
+    cursor:not-allowed;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">🧠 GYANI</div>
+
+<div id="chat">
+    <div class="message">
+        <div class="gyani-avatar avatar"></div>
+        <div class="bubble">
+            <div class="name">GYANI</div>
+            Namaste! Ask me anything 🙂
+        </div>
+    </div>
+</div>
+
+<div class="input-area">
+    <input id="ask" placeholder="Ask your question">
+    <button id="sendBtn">Send</button>
+</div>
+
+<script>
+/* 🔑 ENTER YOUR GROQ API KEY HERE */
+const GROQ_API_KEY = "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";
+
+/* GROQ ENDPOINT */
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+/* STATE */
+let waiting = false;
+
+let messages = [
+  {
+    role: "system",
+    content: `
+You are GYANI, an AI assistant.
+You were invented, created, and developed by Arin Kumar (India).
+If anyone asks who invented you, who created you, or who made you,
+you must always reply: "I was created by Arin Kumar."
+
+Never mention OpenAI, Groq, Google, Gemini, or any other company.
+Speak in simple Hinglish-friendly English.
+`
+  }
+];
+
+
+function scrollChat(){
+    const chat = document.getElementById("chat");
+    chat.scrollTop = chat.scrollHeight;
+}
+
+async function send(){
+    if(waiting) return;
+
+    const input = document.getElementById("ask");
+    const text = input.value.trim();
+    if(!text) return;
+
+    waiting = true;
+    document.getElementById("sendBtn").disabled = true;
+    input.value = "";
+
+    const chat = document.getElementById("chat");
+
+    chat.innerHTML += `
+    <div class="message you">
+        <div class="bubble">
+            <div class="name">You</div>${text}
+        </div>
+        <div class="you-avatar avatar"></div>
+    </div>`;
+    scrollChat();
+
+    messages.push({ role:"user", content:text });
+
+    try{
+        const res = await fetch(GROQ_URL,{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "Authorization":`Bearer ${GROQ_API_KEY}`
+            },
+            body:JSON.stringify({
+                model:"openai/gpt-oss-120b",
+                messages: messages.slice(-10),
+                temperature:0.7,
+                max_tokens:600
+            })
+        });
+
+        if(!res.ok){
+            throw new Error("API Error");
+        }
+
+        const data = await res.json();
+        const reply =
+            data?.choices?.[0]?.message?.content ||
+            "⚠️ No response received.";
+
+        messages.push({ role:"assistant", content:reply });
+
+        chat.innerHTML += `
+        <div class="message">
+            <div class="gyani-avatar avatar"></div>
+            <div class="bubble">
+                <div class="name">GYANI</div>${reply}
+            </div>
+        </div>`;
+    }
+    catch(err){
+        chat.innerHTML += `
+        <div class="message">
+            <div class="gyani-avatar avatar"></div>
+            <div class="bubble">
+                <div class="name">GYANI</div>
+                ⚠️ Something went wrong. Please try again.
+            </div>
+        </div>`;
+    }
+
+    scrollChat();
+
+    setTimeout(()=>{
+        waiting = false;
+        document.getElementById("sendBtn").disabled = false;
+    },800);
+}
+
+document.getElementById("sendBtn").onclick = send;
+document.getElementById("ask").addEventListener("keydown",e=>{
+    if(e.key === "Enter") send();
+});
+</script>
+
+</body>
+</html>
